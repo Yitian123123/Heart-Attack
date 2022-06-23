@@ -1,0 +1,157 @@
+---
+title: "Heart Attact"
+author: "Yitian Fu"
+date: '2022-03-14'
+output: html_document
+---
+
+# Read and explore the data
+
+```{r}
+heart_attact_data<-read.csv("heart.csv")
+head(heart_attact_data)
+```
+
+```{r}
+# to see which variable should be a factor
+for (i in 1:ncol(heart_attact_data)){
+  print(colnames(heart_attact_data)[i])
+  print(unique(heart_attact_data[,i]))
+}
+```
+
+```{r}
+library(kableExtra)
+library(tibble)
+codebook <- 
+  tibble(
+    VARIABLES = c("Age","Sex","cp", "trtbps", "chol", "fbs", "restecg", "thalachh", "exng", "oldpeak", "slp", "caa", "thall", "output"),
+    DESCRIPTION = c("Age of the patient", "Sex of the patient", "Chest Pain type chest pain type: Value 1: typical angina
+Value 2: atypical angina
+Value 3: non-anginal pain
+Value 4: asymptomatic", "resting blood pressure (in mm Hg)", "cholestoral in mg/dl fetched via BMI sensor", "(fasting blood sugar > 120 mg/dl) (1 = true; 0 = false)", "resting electrocardiographic results: Value 0: normal
+Value 1: having ST-T wave abnormality (T wave inversions and/or ST elevation or depression of > 0.05 mV)
+Value 2: showing probable or definite left ventricular hypertrophy by Estes' criteria", "maximum heart rate achieved", "exercise induced angina (1 = yes; 0 = no)", "oldpeak", " ", "number of major vessels (0-3)", "thqll","0= less chance of heart attack 1= more chance of heart attack")
+    
+  )
+
+knitr::kable(codebook, caption = "About this dataset") %>% kable_styling(bootstrap_options = "striped" ,font_size = 20) %>% kableExtra::scroll_box(width = "100%", height = "500px")
+```
+
+```{r}
+heart_attact_data$sex<-as.factor(heart_attact_data$sex)
+heart_attact_data$cp<-as.factor(heart_attact_data$cp)
+heart_attact_data$fbs<-as.factor(heart_attact_data$fbs)
+heart_attact_data$restecg<-as.factor(heart_attact_data$restecg)
+heart_attact_data$exng<-as.factor(heart_attact_data$exng)
+heart_attact_data$slp<-as.factor(heart_attact_data$slp)
+heart_attact_data$caa<-as.factor(heart_attact_data$caa)
+heart_attact_data$thall<-as.factor(heart_attact_data$thall)
+heart_attact_data$output<-as.factor(heart_attact_data$output)
+summary(heart_attact_data)
+```
+
+```{r}
+sum(is.na(heart_attact_data))
+# there is no missing value in this dataset
+```
+
+```{r}
+library(corrplot)
+library(tidyverse)
+coor_frame = heart_attact_data %>%  
+              select(age, chol, thalachh, trtbps, oldpeak)
+    
+corr0 <- cor( method = "pearson", coor_frame[sapply(coor_frame, function(x) !is.factor(x))])
+# devtools::install_github("jbkunst/highcharter")
+library(highcharter)
+hchart(corr0, type = "heatmap") %>%
+    hc_plotOptions(
+           series = list(
+             boderWidth = 0,
+             dataLabels = list(enabled = FALSE)
+    ))
+```
+
+
+# Train and Test Data
+
+```{r}
+sample_size<-floor(0.75*nrow(heart_attact_data))
+sample_size
+```
+
+```{r}
+set.seed(123)
+train_ind = sample(seq_len(nrow(heart_attact_data)),size = sample_size)
+train<-heart_attact_data[train_ind, ]
+test<-heart_attact_data[-train_ind, ]
+testY<-test$output
+testX<-test[,-14]
+```
+
+
+# Build the model and make prediction
+
+```{r}
+library(randomForest)
+set.seed(222)
+rf<-randomForest(output~., data=train, mtry=round(sqrt(ncol(train)-1)), importance = TRUE, ntree=500)
+rf
+```
+```{r}
+importance(rf)
+#Mean Decrease Accuracy - How much the model accuracy decreases if we drop that variable.
+#Mean Decrease Gini - Measure of variable importance based on the Gini impurity index used for the calculation of splits in trees.
+varImpPlot(rf)
+```
+
+```{r}
+library(caret)
+rf.pred<-predict(rf, newdata=testX)
+confusionMatrix(rf.pred, testY)
+```
+
+```{r}
+pred1=predict(rf, testX,type = "prob")
+library(ROCR)
+perf = prediction(pred1[,2], testY)
+# 1. Area under curve
+auc = performance(perf, "auc")
+auc
+# 2. True Positive and Negative Rate
+pred3 = performance(perf, "tpr","fpr")
+# 3. Plot the ROC curve
+plot(pred3,main="ROC Curve for Random Forest",col=2,lwd=2)
+abline(a=0,b=1,lwd=2,lty=2,col="gray")
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
